@@ -493,7 +493,7 @@ get_sve_vl_signal_loc (struct dwarf_cursor* dwarf, unw_word_t sc_addr)
 }
 #else
 static int
-get_sve_vl_signal_loc (struct dwarf_cursor* dwarf, unw_word_t sc_addr)
+get_sve_vl_signal_loc (struct dwarf_cursor* dwarf UNUSED, unw_word_t sc_addr UNUSED)
 {
    return 1;
 }

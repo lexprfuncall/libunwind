@@ -197,7 +197,7 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize, int is_local)
    Returns 0 if a binary is successfully found, or 1 if an error occurs.  */
 
 static int
-find_binary_for_address (unw_word_t ip, char *name, size_t name_size)
+find_binary_for_address (unw_word_t ip UNUSED, char *name UNUSED, size_t name_size UNUSED)
 {
 #if defined(__linux__) && (!UNW_REMOTE_ONLY)
   struct map_iterator mi;

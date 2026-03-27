@@ -26,7 +26,7 @@
 
 
 int
-_UCD_get_mapinfo(struct UCD_info *ui, coredump_phdr_t *phdrs, unsigned phdr_size)
+_UCD_get_mapinfo(struct UCD_info *ui UNUSED, coredump_phdr_t *phdrs UNUSED, unsigned phdr_size UNUSED)
 {
   int ret = UNW_ESUCCESS; /* it's OK if there are no file mappings */
 

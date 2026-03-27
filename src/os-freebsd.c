@@ -89,8 +89,8 @@ get_pid_by_tid(int tid)
 }
 
 int
-tdep_get_elf_image (unw_addr_space_t as, struct elf_image *ei, pid_t pid, unw_word_t ip,
-                    unsigned long *segbase, unsigned long *mapoff, char *path, size_t pathlen, void *arg)
+tdep_get_elf_image (unw_addr_space_t as UNUSED, struct elf_image *ei, pid_t pid, unw_word_t ip,
+                    unsigned long *segbase, unsigned long *mapoff, char *path, size_t pathlen, void *arg UNUSED)
 {
   int mib[4], error, ret;
   size_t len, len1;

@@ -52,7 +52,7 @@ typedef struct
     uint64_t virtual_address;
     int64_t frame_type     : 2;  /* unw_tdep_frame_type_t classification */
     int64_t last_frame     : 1;  /* non-zero if last frame in chain */
-    int64_t cfa_reg_sp     : 1;  /* cfa dwarf base register is sp vs. fp */
+    uint64_t cfa_reg_sp    : 1;  /* cfa dwarf base register is sp vs. fp */
     int64_t cfa_reg_offset : 30; /* cfa is at this offset from base register value */
     int64_t fp_cfa_offset  : 30; /* fp saved at this offset from cfa (-1 = not saved) */
     int64_t lr_cfa_offset  : 30; /* lr saved at this offset from cfa (-1 = not saved) */

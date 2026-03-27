@@ -39,7 +39,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 extern NORETURN void setcontext(ucontext_t *);
 
 HIDDEN int
-aarch64_local_resume (unw_addr_space_t as, unw_cursor_t *cursor, void *arg)
+aarch64_local_resume (unw_addr_space_t as UNUSED, unw_cursor_t *cursor, void *arg UNUSED)
 {
   struct cursor *c = (struct cursor *) cursor;
 

@@ -24,7 +24,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "_UCD_internal.h"
 
 int
-_UCD_access_reg (unw_addr_space_t as,
+_UCD_access_reg (unw_addr_space_t as UNUSED,
                                 unw_regnum_t regnum, unw_word_t *valp,
                                 int write, void *arg)
 {

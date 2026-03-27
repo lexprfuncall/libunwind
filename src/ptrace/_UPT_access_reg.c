@@ -362,7 +362,7 @@ _UPT_access_reg (unw_addr_space_t as UNUSED, unw_regnum_t reg, unw_word_t *val,
 
 #elif defined(HAVE_DECL_PT_GETREGS) && defined(__FreeBSD__)
 int
-_UPT_access_reg (unw_addr_space_t as, unw_regnum_t reg, unw_word_t *val,
+_UPT_access_reg (unw_addr_space_t as UNUSED, unw_regnum_t reg, unw_word_t *val,
                 int write, void *arg)
 {
   struct UPT_info *ui = arg;

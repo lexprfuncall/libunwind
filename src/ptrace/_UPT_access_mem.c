@@ -97,7 +97,7 @@ _UPT_access_mem (unw_addr_space_t as UNUSED, unw_word_t addr, unw_word_t *val,
 }
 #elif HAVE_DECL_PT_IO
 int
-_UPT_access_mem (unw_addr_space_t as, unw_word_t addr, unw_word_t *val,
+_UPT_access_mem (unw_addr_space_t as UNUSED, unw_word_t addr, unw_word_t *val,
                  int write, void *arg)
 {
   struct UPT_info *ui = arg;

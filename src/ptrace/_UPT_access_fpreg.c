@@ -68,7 +68,7 @@ _UPT_access_fpreg (unw_addr_space_t as UNUSED, unw_regnum_t reg, unw_fpreg_t *va
 }
 #elif HAVE_DECL_PT_GETFPREGS
 int
-_UPT_access_fpreg (unw_addr_space_t as, unw_regnum_t reg, unw_fpreg_t *val,
+_UPT_access_fpreg (unw_addr_space_t as UNUSED, unw_regnum_t reg, unw_fpreg_t *val,
                    int write, void *arg)
 {
   struct UPT_info *ui = arg;
