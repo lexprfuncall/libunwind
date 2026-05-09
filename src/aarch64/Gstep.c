@@ -534,28 +534,27 @@ track_frame_record (uint32_t insn, unw_word_t insn_addr,
 
 /* Scan instructions from the start of the current procedure up to the current
    IP tracking the frame record and SP adjustment. */
-frame_state_t
-get_frame_state (unw_cursor_t *cursor)
+int
+get_frame_state (unw_cursor_t *cursor, frame_state_t *fs)
 {
   sp_state_t sp_state = SP_UNCHANGED;
   int32_t sp_offset = 0;
   struct cursor *c = (struct cursor *) cursor;
   unw_accessors_t *a = unw_get_accessors (c->dwarf.as);
   unw_word_t w, start_ip, ip, offp;
-  frame_state_t fs;
-  fs.loc = NONE;
-  fs.offset = 0;
+  fs->loc = NONE;
+  fs->offset = 0;
 
   /* PLT entries do not create frame records */
   if (_is_plt_entry (&c->dwarf))
-    return fs;
+    return 0;
 
   /* Use get_proc_name to find start_ip of procedure.
      For vDSO functions (the primary consumer of this fallback),
      .dynsym is always available even though .eh_frame is discarded. */
   char name[128];
   if (((*a->get_proc_name) (c->dwarf.as, c->dwarf.ip, name, sizeof(name), &offp, c->dwarf.as_arg)) != 0)
-    return fs;
+    return -UNW_ENOINFO;
 
   start_ip = c->dwarf.ip - offp;
 
@@ -565,7 +564,7 @@ get_frame_state (unw_cursor_t *cursor)
   for (ip = start_ip; ip < c->dwarf.ip; ip += WSIZE)
     {
       if ((*a->access_mem) (c->dwarf.as, ip, &w, 0, c->dwarf.as_arg) < 0)
-        return fs;
+        return -UNW_ENOINFO;
 
       uint32_t insns[2] = { w & 0xffffffff, w >> 32 };
 
@@ -579,20 +578,20 @@ get_frame_state (unw_cursor_t *cursor)
           track_stack_pointer (insn, &sp_state, &sp_offset);
 
           /* Frame-record tracking.  Detects the STP/MOV/LDP sequence that
-             creates and destroys a frame record, tracking fs.loc through
+             creates and destroys a frame record, tracking fs->loc through
              NONE -> AT_SP_OFFSET -> AT_FP -> (back to NONE).  */
-          track_frame_record (insn, ip + j * 4, &fs.loc, &fs.offset);
+          track_frame_record (insn, ip + j * 4, &fs->loc, &fs->offset);
         }
     }
 
   /* Use the SP offset if no frame record was found. */
-  if (fs.loc == NONE)
-    fs.offset = sp_offset;
+  if (fs->loc == NONE)
+    fs->offset = sp_offset;
 
   Debug (3, "[start_ip = 0x%lx, ip=0x%lx) => loc = %d, offset = %d\n",
-            start_ip, c->dwarf.ip, fs.loc, fs.offset);
+            start_ip, c->dwarf.ip, fs->loc, fs->offset);
 
-  return fs;
+  return 0;
 }
 
 #if defined __QNX__
@@ -854,6 +853,124 @@ aarch64_handle_signal_frame (unw_cursor_t *cursor)
   return get_sve_vl_signal_loc (&c->dwarf, sc_addr);
 }
 
+static int
+_unw_step_fallback (struct cursor *c, unw_cursor_t *cursor)
+{
+  unw_word_t fp = 0;
+  int ret;
+
+  if (c->dwarf.as == unw_local_addr_space)
+    c->validate = 1;
+
+  if (_is_plt_entry (&c->dwarf))
+    {
+      Debug (2, "found plt entry\n");
+      c->frame_info.frame_type = UNW_AARCH64_FRAME_STANDARD;
+    }
+#if defined __QNX__
+  else if (is_qnx_kercall(&c->dwarf))
+    {
+      Debug (2, "found qnx kernel call, fallback to use link register\n");
+      c->frame_info.frame_type = UNW_AARCH64_FRAME_GUESSED;
+    }
+#endif
+  else
+    {
+      c->frame_info.frame_type = UNW_AARCH64_FRAME_GUESSED;
+    }
+
+  frame_state_t fs;
+  ret = get_frame_state(cursor, &fs);
+  if (ret < 0)
+    {
+      Debug (2, "get_frame_state failed (%d), stopping\n", ret);
+      return ret;
+    }
+
+  /* Prefer using frame record.  The LR value is stored at an offset of
+     8 into the frame record.  */
+  if (fs.loc == AT_FP)
+    {
+      ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_X29], &fp);
+      if (unlikely (ret == 0))
+        {
+          if (fp == 0)
+            {
+              c->dwarf.ip = 0;
+              Debug (2, "NULL frame pointer X29 loc, returning 0\n");
+              return 0;
+            }
+        }
+
+      for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
+        c->dwarf.loc[i] = DWARF_NULL_LOC;
+
+      c->dwarf.loc[UNW_AARCH64_X29] = DWARF_MEM_LOC (c->dwarf, fp);
+      c->dwarf.loc[UNW_AARCH64_X30] = DWARF_MEM_LOC (c->dwarf, fp + 8);
+    }
+  else if (fs.loc == AT_SP_OFFSET)
+    {
+      unw_word_t sp;
+      ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_SP], &sp);
+      if (ret < 0)
+        return ret;
+
+      for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
+        c->dwarf.loc[i] = DWARF_NULL_LOC;
+
+      c->frame_info.cfa_reg_offset = fs.offset;
+      c->frame_info.cfa_reg_sp = 1;
+
+      c->dwarf.loc[UNW_AARCH64_X29] = DWARF_MEM_LOC (c->dwarf, sp + fs.offset);
+      c->dwarf.loc[UNW_AARCH64_X30] = DWARF_MEM_LOC (c->dwarf, sp + fs.offset + 8);
+    }
+
+  if (fs.loc != NONE)
+    {
+      c->dwarf.loc[UNW_AARCH64_PC] = c->dwarf.loc[UNW_AARCH64_X30];
+
+      ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_X29], &c->dwarf.cfa);
+      if (ret < 0)
+        return ret;
+      ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_PC], &c->dwarf.ip);
+      if (ret < 0)
+        return ret;
+
+      Debug (2, "fallback, CFA = 0x%016lx, IP = 0x%016lx\n",
+             c->dwarf.cfa, c->dwarf.ip);
+      return 1;
+    }
+
+  /* No frame record, fallback to link register (X30).  */
+  c->frame_info.cfa_reg_sp = (fs.offset > 0) ? 1 : 0;
+  c->frame_info.cfa_reg_offset = fs.offset;
+  c->frame_info.fp_cfa_offset = -1;
+  c->frame_info.lr_cfa_offset = -1;
+  c->frame_info.sp_cfa_offset = -1;
+  c->dwarf.loc[UNW_AARCH64_PC] = c->dwarf.loc[UNW_AARCH64_X30];
+  c->dwarf.loc[UNW_AARCH64_X30] = DWARF_NULL_LOC;
+  if (!DWARF_IS_NULL_LOC (c->dwarf.loc[UNW_AARCH64_PC]))
+    {
+      ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_PC], &c->dwarf.ip);
+      if (ret < 0)
+        {
+          Debug (2, "failed to get pc from link register: %d\n", ret);
+          return ret;
+        }
+      if (fs.offset > 0)
+        {
+          c->dwarf.cfa += fs.offset;
+          Debug (2, "adjusted CFA by +%d for stack frame\n", fs.offset);
+        }
+      Debug (2, "link register (x30) = 0x%016lx, CFA = 0x%016lx\n",
+             c->dwarf.ip, c->dwarf.cfa);
+      return 1;
+    }
+
+  c->dwarf.ip = 0;
+  return 0;
+}
+
 int
 unw_step (unw_cursor_t *cursor)
 {
@@ -911,135 +1028,21 @@ unw_step (unw_cursor_t *cursor)
     {
       Debug (2, "failure in dwarf_step(), returning %d\n", ret);
       return ret;
-	}
-
-  if (unlikely (ret < 0))
-    {
-      /* DWARF failed. */
-
-      /*
-       * We could get here because of missing/bad unwind information.
-       * Validate all addresses before dereferencing.
-       */
-      if (c->dwarf.as == unw_local_addr_space)
-        {
-          c->validate = 1;
-        }
-
-      if (_is_plt_entry (&c->dwarf))
-        {
-          Debug (2, "found plt entry\n");
-          c->frame_info.frame_type = UNW_AARCH64_FRAME_STANDARD;
-        }
-#if defined __QNX__
-      else if (is_qnx_kercall(&c->dwarf))
-        {
-          Debug (2, "found qnx kernel call, fallback to use link register\n");
-          c->frame_info.frame_type = UNW_AARCH64_FRAME_GUESSED;
-        }
-#endif
-      else
-        {
-	  /* Try use frame record. */
-          c->frame_info.frame_type = UNW_AARCH64_FRAME_GUESSED;
-	}
-
-      frame_state_t fs = get_frame_state(cursor);
-
-      /* Prefer using frame record. The LR value is stored at an offset of
-         8 into the frame record.  */
-      if (fs.loc != NONE)
-        {
-          if (fs.loc == AT_FP)
-            {
-              /* X29 points to frame record.  */
-              ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_X29], &fp);
-              if (unlikely (ret == 0))
-                {
-                  if (fp == 0)
-                    {
-                      /* Procedure Call Standard for the ARM 64-bit Architecture (AArch64)
-                       * specifies that the end of the frame record chain is indicated by
-                       * the address zero in the address for the previous frame.
-                       */
-                      c->dwarf.ip = 0;
-                      Debug (2, "NULL frame pointer X29 loc, returning 0\n");
-                      return 0;
-                    }
-                }
-
-              for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
-                c->dwarf.loc[i] = DWARF_NULL_LOC;
-
-              /* Frame record holds X29 and X30 values.  */
-              c->dwarf.loc[UNW_AARCH64_X29] = DWARF_MEM_LOC (c->dwarf, fp);
-              c->dwarf.loc[UNW_AARCH64_X30] = DWARF_MEM_LOC (c->dwarf, fp + 8);
-            }
-          else
-            {
-              /* Frame record stored but not pointed to by X29, use SP.  */
-              unw_word_t sp;
-              ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_SP], &sp);
-              if (ret < 0)
-                return ret;
-
-              for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
-                c->dwarf.loc[i] = DWARF_NULL_LOC;
-
-              c->frame_info.cfa_reg_offset = fs.offset;
-              c->frame_info.cfa_reg_sp = 1;
-
-              c->dwarf.loc[UNW_AARCH64_X29] = DWARF_MEM_LOC (c->dwarf, sp + fs.offset);
-              c->dwarf.loc[UNW_AARCH64_X30] = DWARF_MEM_LOC (c->dwarf, sp + fs.offset + 8);
-            }
-
-          c->dwarf.loc[UNW_AARCH64_PC] = c->dwarf.loc[UNW_AARCH64_X30];
-
-          /* Set SP/CFA and PC/IP.  */
-          ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_X29], &c->dwarf.cfa);
-          if (ret < 0)
-            return ret;
-          ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_PC], &c->dwarf.ip);
-          if (ret == 0)
-            {
-              ret = 1;
-            }
-          Debug (2, "fallback, CFA = 0x%016lx, IP = 0x%016lx returning %d\n",
-            c->dwarf.cfa, c->dwarf.ip, ret);
-          return ret;
-        }
-
-      /* No frame record, fallback to link register (X30).  */
-      c->frame_info.cfa_reg_sp = (fs.offset > 0) ? 1 : 0;
-      c->frame_info.cfa_reg_offset = fs.offset;
-      c->frame_info.fp_cfa_offset = -1;
-      c->frame_info.lr_cfa_offset = -1;
-      c->frame_info.sp_cfa_offset = -1;
-      c->dwarf.loc[UNW_AARCH64_PC] = c->dwarf.loc[UNW_AARCH64_X30];
-      c->dwarf.loc[UNW_AARCH64_X30] = DWARF_NULL_LOC;
-      if (!DWARF_IS_NULL_LOC (c->dwarf.loc[UNW_AARCH64_PC]))
-        {
-          ret = dwarf_get (&c->dwarf, c->dwarf.loc[UNW_AARCH64_PC], &c->dwarf.ip);
-          if (ret < 0)
-            {
-              Debug (2, "failed to get pc from link register: %d\n", ret);
-              return ret;
-            }
-          /* Undo the stack frame allocation so the CFA is correct for
-             the caller.  Without this adjustment, the next DWARF step
-             would compute register locations from the wrong SP.  */
-          if (fs.offset > 0)
-            {
-              c->dwarf.cfa += fs.offset;
-              Debug (2, "adjusted CFA by +%d for stack frame\n", fs.offset);
-            }
-          Debug (2, "link register (x30) = 0x%016lx, CFA = 0x%016lx\n",
-                 c->dwarf.ip, c->dwarf.cfa);
-          ret = 1;
-        }
-      else
-        c->dwarf.ip = 0;
     }
 
-  return (c->dwarf.ip == 0) ? 0 : 1;
+  if (ret == -UNW_ENOINFO)
+    {
+      unw_word_t prev_ip = c->dwarf.ip;
+      unw_word_t prev_cfa = c->dwarf.cfa;
+
+      ret = _unw_step_fallback (c, cursor);
+
+      if (ret >= 0 && c->dwarf.ip == prev_ip && c->dwarf.cfa == prev_cfa)
+        {
+          Debug (2, "infinite loop detected, stopping\n");
+          ret = 0;
+        }
+    }
+
+  return (ret >= 0 && c->dwarf.ip == 0) ? 0 : ret;
 }

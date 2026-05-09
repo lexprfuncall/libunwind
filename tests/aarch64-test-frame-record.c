@@ -42,6 +42,14 @@ get_proc_name (unw_addr_space_t as, unw_word_t ip, char *buf, size_t len, unw_wo
   return 0;
 }
 
+//! Stub implementation that always fails
+static int
+get_proc_name_fail (unw_addr_space_t as, unw_word_t ip, char *buf, size_t len,
+                    unw_word_t *offp, void *arg)
+{
+  return -UNW_ENOINFO;
+}
+
 int
 main ()
 {
@@ -81,37 +89,37 @@ main ()
 
     /* IP is pointing to instruction that stores FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to first instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after first retrieval of FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp1+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to second instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp2);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after second retrieval of FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp2+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -138,32 +146,32 @@ main ()
 
     /* IP is pointing to instruction that stores FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP and LR are stored */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after retrieval of FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -193,32 +201,32 @@ main ()
 
     /* IP is pointing to start of procedure */
     c->dwarf.ip = (unw_word_t) (instructions);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that stores FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP and LR are retrieved */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -248,34 +256,34 @@ main ()
 
     /* IP is pointing to start of procedure */
     c->dwarf.ip = (unw_word_t) (instructions);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that stores FP and LR.  fs.offset
        is the frame size (0x20) and comes from the immediate in the
        sub sp, sp, #0x20 instruction. */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0x20) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpAdd);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 16) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpAdd+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP and LR are retrieved */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -305,34 +313,34 @@ main ()
 
     /* IP is pointing to start of procedure */
     c->dwarf.ip = (unw_word_t) (instructions);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that stores FP and LR.  fs.offset
        is the frame size (0x20) and comes from the immediate in the
        sub sp, sp, #0x20 instruction. */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0x20) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpAdd);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != -16) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpAdd+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP and LR are retrieved */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -357,27 +365,27 @@ main ()
 
     /* IP is pointing to instruction that stores FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after retrieval of FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -402,27 +410,27 @@ main ()
 
     /* IP is pointing to instruction that stores FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after retrieval of FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -447,27 +455,27 @@ main ()
 
     /* IP is pointing to instruction that stores FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpStp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that updates the FP */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_SP_OFFSET || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after FP was updated */
     c->dwarf.ip = (unw_word_t) (instructions+IpMov+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction that retrieves FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != AT_FP || fs.offset != 0) return -1;
 
     /* IP is pointing to instruction after retrieval of FP and LR */
     c->dwarf.ip = (unw_word_t) (instructions+IpLdp+1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -486,12 +494,12 @@ main ()
 
     /* IP is pointing to start of procedure */
     c->dwarf.ip = (unw_word_t) (instructions);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to end of procedure */
     c->dwarf.ip = (unw_word_t) (instructions+procedure_size-1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
   }
 
@@ -515,13 +523,53 @@ main ()
 
     /* IP is pointing to start of procedure */
     c->dwarf.ip = (unw_word_t) (instructions);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
 
     /* IP is pointing to end of procedure */
     c->dwarf.ip = (unw_word_t) (instructions+procedure_size-1);
-    fs = get_frame_state(&cursor);
+    get_frame_state(&cursor, &fs);
     if (fs.loc != NONE || fs.offset != 0) return -1;
+  }
+
+  /* get_proc_name failure: get_frame_state should return an error */
+  {
+    struct unw_addr_space failing_address_space;
+    failing_address_space.acc.access_mem = &access_mem;
+    failing_address_space.acc.get_proc_name = &get_proc_name_fail;
+
+    unsigned int instructions[2] = {
+      0xa9be7bfd, // stp     x29, x30, [sp,#-32]!
+      0x910003fd, // mov     x29, sp
+    };
+    procedure_size = 2;
+
+    c->dwarf.as = &failing_address_space;
+    c->dwarf.as_arg = &instructions;
+    c->dwarf.ip = (unw_word_t) (instructions+1);
+
+    int ret = get_frame_state(&cursor, &fs);
+    if (ret >= 0) return -1;
+
+    c->dwarf.as = &mock_address_space;
+  }
+
+  /* access_mem failure: get_frame_state should return an error when
+     the instruction scan reads past accessible memory */
+  {
+    unsigned int instructions[2] = {
+      0xd10083ff, // sub     sp, sp, #0x20
+      0xa9be7bfd, // stp     x29, x30, [sp,#-32]!
+    };
+    procedure_size = 2;
+
+    c->dwarf.as_arg = &instructions;
+
+    /* Set IP far past the buffer so access_mem fails during the scan */
+    c->dwarf.ip = (unw_word_t) (instructions + 20);
+
+    int ret = get_frame_state(&cursor, &fs);
+    if (ret >= 0) return -1;
   }
 
   return 0;

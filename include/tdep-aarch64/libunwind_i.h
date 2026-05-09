@@ -351,6 +351,6 @@ typedef struct frame_state
   } frame_state_t;
 
 #define get_frame_state UNW_OBJ(get_frame_state)
-HIDDEN frame_state_t get_frame_state (unw_cursor_t *cursor);
+HIDDEN int get_frame_state (unw_cursor_t *cursor, frame_state_t *fs);
 
 #endif /* AARCH64_LIBUNWIND_I_H */
